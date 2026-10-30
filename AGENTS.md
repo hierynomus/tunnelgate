@@ -119,9 +119,11 @@ VERSION=x.y.z mise run dist  # release assets in target/dist
 
 - `.github/workflows/ci.yml`: lint, test, CRD drift, chart, and the cluster tests. Caching via
   GitHub's `actions/cache` only.
-- `.github/workflows/release.yml` on `v*.*.*` tags: the tag must match the crate version; no
-  caches; multi-arch image with provenance, SBOM attestation and keyless cosign signatures; OCI
-  chart pinned to the image digest; GitHub release with generated notes. Registry login only via
+- `.github/workflows/release.yml` on `v*.*.*` tags: the tag is the version (stamped into the
+  binaries via `TUNNELGATE_VERSION`, into the chart via `helm package`; `Cargo.toml` and
+  `Chart.yaml` keep the placeholder `0.0.0-dev`, never bump them); no caches; multi-arch image with
+  provenance, SBOM attestation and keyless cosign signatures; OCI chart pinned to the image
+  digest; GitHub release with generated notes. Registry login only via
   `docker/login-action` (Helm and cosign reuse it).
 - Release-note sections come from PR labels (`.github/release.yml`), set by
   `.github/workflows/labeler.yml`; `skip-changelog` leaves a PR out.

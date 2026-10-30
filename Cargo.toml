@@ -3,18 +3,19 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.0"
+# Placeholder: release versions come from the git tag (see .github/workflows/release.yml).
+version = "0.0.0-dev"
 edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"
 repository = "https://github.com/hierynomus/tunnelgate"
 
 [workspace.dependencies]
-tunnelgate-api = { version = "0.1.0", path = "crates/tunnelgate-api" }
-tunnelgate-cf = { version = "0.1.0", path = "crates/tunnelgate-cf", default-features = false }
-tunnelgate-cf-fake = { version = "0.1.0", path = "crates/tunnelgate-cf-fake" }
-tunnelgate-render = { version = "0.1.0", path = "crates/tunnelgate-render" }
-tunnelgate-cli = { version = "0.1.0", path = "crates/tunnelgate-cli" }
+tunnelgate-api = { version = "0.0.0-dev", path = "crates/tunnelgate-api" }
+tunnelgate-cf = { version = "0.0.0-dev", path = "crates/tunnelgate-cf", default-features = false }
+tunnelgate-cf-fake = { version = "0.0.0-dev", path = "crates/tunnelgate-cf-fake" }
+tunnelgate-render = { version = "0.0.0-dev", path = "crates/tunnelgate-render" }
+tunnelgate-cli = { version = "0.0.0-dev", path = "crates/tunnelgate-cli" }
 
 anyhow = "1"
 async-trait = "0.1"

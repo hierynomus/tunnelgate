@@ -150,9 +150,11 @@ operator is still running there. Zones the token may not read DNS in are reporte
 
 ## Releases
 
-Tags `vX.Y.Z` publish `ghcr.io/hierynomus/tunnelgate` (amd64, arm64), the chart
-`oci://ghcr.io/hierynomus/charts/tunnelgate` (pinned to the image digest), and a GitHub release with
-the `tunnelgate` CLI, `crds.yaml`, an SPDX SBOM and checksums. Images, chart and checksums are
+Pushing a tag `vX.Y.Z` releases version X.Y.Z; the tag is the only place the version is set
+(`Cargo.toml` and `Chart.yaml` hold a `0.0.0-dev` placeholder). A release publishes
+`ghcr.io/hierynomus/tunnelgate` (amd64, arm64), the chart `oci://ghcr.io/hierynomus/charts/tunnelgate`
+(pinned to the image digest), and a GitHub release with the `tunnelgate` CLI, `crds.yaml`, an SPDX
+SBOM and checksums. Images, chart and checksums are
 signed with cosign (keyless):
 
 ```sh

@@ -109,6 +109,8 @@ run = ["helm lint charts/tunnelgate", "helm package charts/tunnelgate --destinat
 [tasks.build-musl]
 description = "Static release binaries for amd64 and arm64, staged in target/image/<arch> for the image"
 run = """
+# VERSION (a release version, as for `dist`) is stamped into the binaries.
+if [ -n "${VERSION:-}" ]; then export TUNNELGATE_VERSION="$VERSION"; fi
 for t in x86_64-unknown-linux-musl:amd64 aarch64-unknown-linux-musl:arm64; do
   target="${t%%:*}" arch="${t##*:}"
   cargo zigbuild --release --locked --target "$target" -p tunnelgate-operator -p tunnelgate-cli

@@ -27,20 +27,20 @@ jobs:
       id-token: write   # cosign keyless signing
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # No caches (tools or build): nothing a CI run wrote ends up in a signed release.
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-        with:
-          cache: false
-
+      # The tag is the version: binaries, image, chart and release all take it from here.
       - name: Version from the tag
         id: version
         run: |
           version="${GITHUB_REF_NAME#v}"
-          crate=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "tunnelgate-operator") | .version')
-          if [ "$crate" != "$version" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match the crate version $crate"; exit 1
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag $GITHUB_REF_NAME is not a version (vMAJOR.MINOR.PATCH[-PRERELEASE])"; exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # No caches (tools or build): nothing a CI run wrote ends up in a signed release.
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          cache: false
 
       - run: mise run lint
       - run: mise run test

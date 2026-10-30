@@ -8,7 +8,7 @@ use tunnelgate_operator::context::{DEFAULT_CONNECTOR_IMAGE, HttpFactory, Setting
 use tunnelgate_operator::leader::{self, LeaseConfig};
 
 #[derive(Debug, Parser)]
-#[command(name = "tunnelgate-operator", version, about = "Publishes services through Cloudflare Tunnel")]
+#[command(name = "tunnelgate-operator", version = tunnelgate_cf::VERSION, about = "Publishes services through Cloudflare Tunnel")]
 struct Args {
     /// Full resync period (drift repair), e.g. 10m.
     #[arg(long, env = "TUNNELGATE_RESYNC", default_value = "10m")]

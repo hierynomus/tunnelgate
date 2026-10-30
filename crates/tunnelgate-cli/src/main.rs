@@ -13,7 +13,7 @@ use secrecy::SecretString;
 use tunnelgate_cf::{Client, ClientConfig, CloudflareApi};
 
 #[derive(Debug, Parser)]
-#[command(name = "tunnelgate", version, about = "tunnelgate tooling")]
+#[command(name = "tunnelgate", version = tunnelgate_cf::VERSION, about = "tunnelgate tooling")]
 struct Cli {
     #[command(subcommand)]
     command: Command,

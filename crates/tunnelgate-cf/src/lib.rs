@@ -21,6 +21,13 @@ pub use error::{Error, Result};
 pub use limit::RateLimit;
 use types::*;
 
+/// The tunnelgate version: the release tag's version (`TUNNELGATE_VERSION` at build time, set by
+/// `mise run dist`), else the workspace's placeholder version for development builds.
+pub const VERSION: &str = match option_env!("TUNNELGATE_VERSION") {
+    Some(v) => v,
+    None => env!("CARGO_PKG_VERSION"),
+};
+
 /// Default API base URL.
 pub const DEFAULT_BASE_URL: &str = "https://api.cloudflare.com/client/v4";
 

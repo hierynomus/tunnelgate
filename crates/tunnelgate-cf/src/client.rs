@@ -62,7 +62,7 @@ impl Client {
 
     pub fn with_config(token: SecretString, config: ClientConfig) -> Result<Self> {
         let http = reqwest::Client::builder()
-            .user_agent(concat!("tunnelgate/", env!("CARGO_PKG_VERSION")))
+            .user_agent(format!("tunnelgate/{}", crate::VERSION))
             .timeout(config.timeout)
             .build()
             .map_err(|e| Error::Transport { method: "INIT", path: String::new(), message: e.to_string() })?;
