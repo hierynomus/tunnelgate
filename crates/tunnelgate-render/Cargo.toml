@@ -1,0 +1,19 @@
+[package]
+name = "tunnelgate-render"
+description = "Pure tunnelgate logic: ingress rendering and ordering, ownership markers, DNS and Access planning"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tunnelgate-api = { workspace = true }
+tunnelgate-cf = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

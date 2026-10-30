@@ -1,0 +1,10 @@
+apiVersion: v2
+name: tunnelgate
+description: Publishes Kubernetes services through Cloudflare Tunnel, with DNS and Cloudflare Access managed from custom resources
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.30.0-0"
+home: https://github.com/hierynomus/tunnelgate
+sources:
+  - https://github.com/hierynomus/tunnelgate

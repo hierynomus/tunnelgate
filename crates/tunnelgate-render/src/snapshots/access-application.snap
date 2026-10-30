@@ -1,0 +1,32 @@
+---
+source: crates/tunnelgate-render/src/access.rs
+expression: app
+---
+{
+  "name": "Rancher agents [tunnelgate:3f2a9c1e]",
+  "type": "self_hosted",
+  "domain": "rancher.example.org/v3/connect",
+  "destinations": [
+    {
+      "type": "public",
+      "uri": "rancher.example.org/v3/connect"
+    },
+    {
+      "type": "public",
+      "uri": "rancher.example.org/cacerts"
+    }
+  ],
+  "policies": [
+    {
+      "id": "p1",
+      "precedence": 1
+    },
+    {
+      "id": "p2",
+      "precedence": 2
+    }
+  ],
+  "session_duration": "24h",
+  "app_launcher_visible": false,
+  "skip_interstitial": true
+}

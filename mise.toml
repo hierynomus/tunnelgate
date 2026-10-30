@@ -1,0 +1,138 @@
+# All tooling is pinned here and installed with `mise install`; nothing global, no curl | sh.
+
+[tools]
+rust = { version = "1.94.1", components = "clippy,rustfmt", targets = "x86_64-unknown-linux-musl,aarch64-unknown-linux-musl" }
+"cargo:cargo-nextest" = "0.9.150"
+"cargo:cargo-deny" = "0.20.2"
+"cargo:cargo-zigbuild" = "0.24.0"
+"cargo:cargo-insta" = "1.49.0"
+zig = "0.17.0"
+k3d = "5.9.0"
+kubectl = "1.37.2"
+helm = "4.3.1"
+cosign = "3.1.4"
+syft = "1.55.0"
+
+[env]
+# k3d cluster used by `test-cluster`; tests read KUBECONFIG.
+TUNNELGATE_TEST_CLUSTER = "tunnelgate-test"
+GATEWAY_API_VERSION = "v1.2.0"
+
+[tasks.fmt]
+description = "Format all code"
+run = "cargo fmt --all"
+
+[tasks.lint]
+description = "rustfmt check, clippy, cargo-deny"
+run = [
+  "cargo fmt --all -- --check",
+  "cargo clippy --workspace --all-targets -- -D warnings",
+  "cargo deny check",
+]
+
+[tasks.test]
+description = "Unit tests (no cluster, no Cloudflare)"
+run = "cargo nextest run --workspace"
+
+[tasks.crds]
+description = "Regenerate charts/tunnelgate/crds and docs/crds.md from the Rust types; fails in CI when they differ"
+run = """
+cargo run -q -p tunnelgate-cli -- crdgen --out-dir charts/tunnelgate/crds
+cargo run -q -p tunnelgate-cli -- crdgen --markdown > docs/crds.md
+if [ -n "${CI:-}" ]; then git diff --exit-code -- charts/tunnelgate/crds docs/crds.md; fi
+"""
+
+[tasks.cluster-up]
+description = "Create the throwaway k3d cluster for controller tests"
+# A single node that runs pods (cloudflared for the live tests). Without a Docker daemon, the
+# rootless Podman socket is used (`systemctl --user enable --now podman.socket`). Rootless needs
+# the cpu/cpuset/io/memory cgroup controllers delegated to the user session (see README) plus:
+# - KubeletInUserNamespace: the kubelet can't open /dev/kmsg in a user namespace;
+# - conntrack-max-per-core=0: kube-proxy can't set conntrack sysctls there;
+# - the host's nameservers instead of Podman's aardvark-dns, which times out on AAAA queries for
+#   some names (Docker Hub's CDN), so image pulls fail. k3d's own DNS fix is off since we replace
+#   resolv.conf. These are harmless with Docker.
+run = """
+if [ -z "${DOCKER_HOST:-}" ] && [ ! -S /var/run/docker.sock ] && command -v podman >/dev/null; then
+  export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/podman/podman.sock" DOCKER_SOCK="${XDG_RUNTIME_DIR}/podman/podman.sock"
+fi
+mkdir -p target
+# Loopback resolvers (systemd-resolved's 127.0.0.53) aren't reachable from the node container.
+grep -E '^nameserver' /etc/resolv.conf | grep -vE ' (127[.]|::1)' > target/k3d-resolv.conf || true
+[ -s target/k3d-resolv.conf ] || echo 'nameserver 1.1.1.1' > target/k3d-resolv.conf
+k3d cluster list "$TUNNELGATE_TEST_CLUSTER" >/dev/null 2>&1 || \
+  K3D_FIX_DNS=0 k3d cluster create "$TUNNELGATE_TEST_CLUSTER" --no-lb --wait --timeout 240s \
+    --volume "$PWD/target/k3d-resolv.conf:/etc/resolv.conf@server:0" \
+    --k3s-arg '--disable=traefik,metrics-server@server:0' \
+    --k3s-arg '--kubelet-arg=feature-gates=KubeletInUserNamespace=true@server:0' \
+    --k3s-arg '--kube-proxy-arg=conntrack-max-per-core=0@server:0'
+k3d kubeconfig write "$TUNNELGATE_TEST_CLUSTER" --output target/k3d-kubeconfig >/dev/null
+export KUBECONFIG="$PWD/target/k3d-kubeconfig"
+# k3s creates its addons shortly after the API is up.
+for _ in $(seq 60); do kubectl -n kube-system get deployment/coredns >/dev/null 2>&1 && break; sleep 2; done
+kubectl -n kube-system rollout status deployment/coredns --timeout=180s >/dev/null
+# Gateway API at the oldest release the adapter supports (v1.2.0, standard channel).
+kubectl apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml" >/dev/null
+kubectl wait --for condition=Established --timeout=60s crd/gatewayclasses.gateway.networking.k8s.io \
+  crd/gateways.gateway.networking.k8s.io crd/httproutes.gateway.networking.k8s.io >/dev/null
+"""
+
+[tasks.cluster-down]
+description = "Delete the k3d test cluster"
+run = """
+if [ -z "${DOCKER_HOST:-}" ] && [ ! -S /var/run/docker.sock ] && command -v podman >/dev/null; then
+  export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/podman/podman.sock" DOCKER_SOCK="${XDG_RUNTIME_DIR}/podman/podman.sock"
+fi
+k3d cluster delete "$TUNNELGATE_TEST_CLUSTER"
+"""
+
+[tasks.test-cluster]
+description = "Controller tests: in-process controllers against k3d and the fake Cloudflare API"
+depends = ["cluster-up"]
+run = """
+KUBECONFIG="$PWD/target/k3d-kubeconfig" cargo run -q -p tunnelgate-cli -- crdgen | KUBECONFIG="$PWD/target/k3d-kubeconfig" kubectl apply --server-side --force-conflicts -f -
+KUBECONFIG="$PWD/target/k3d-kubeconfig" TUNNELGATE_CLUSTER_TESTS=1 cargo nextest run -p tunnelgate-operator --test cluster --no-capture --test-threads 1
+"""
+
+[tasks.test-live]
+description = "Contract tests against the live Cloudflare API (needs mise.local.toml; creates and deletes tg-spike-* objects)"
+run = "TUNNELGATE_LIVE_TESTS=1 cargo nextest run -p tunnelgate-operator --test live_api --no-capture"
+
+[tasks.test-e2e]
+description = "End-to-end test: operator + real cloudflared in k3d against the live Cloudflare API (needs mise.local.toml and cluster-up; creates and deletes tg-spike-* objects and hostnames)"
+run = "KUBECONFIG=\"$PWD/target/k3d-kubeconfig\" TUNNELGATE_E2E_TESTS=1 cargo nextest run -p tunnelgate-operator --test e2e --no-capture"
+
+[tasks.chart]
+description = "Lint and package the Helm chart"
+run = ["helm lint charts/tunnelgate", "helm package charts/tunnelgate --destination target/chart"]
+
+[tasks.build-musl]
+description = "Static release binaries for amd64 and arm64, staged in target/image/<arch> for the image"
+run = """
+for t in x86_64-unknown-linux-musl:amd64 aarch64-unknown-linux-musl:arm64; do
+  target="${t%%:*}" arch="${t##*:}"
+  cargo zigbuild --release --locked --target "$target" -p tunnelgate-operator -p tunnelgate-cli
+  mkdir -p "target/image/$arch"
+  cp "target/$target/release/tunnelgate-operator" "target/$target/release/tunnelgate" "target/image/$arch/"
+done
+"""
+
+[tasks.image]
+description = "Multi-arch operator image (SUSE BCI Minimal base); PUSH=1 pushes it"
+depends = ["build-musl"]
+run = "docker buildx build --platform linux/amd64,linux/arm64 -t ${IMAGE:-ghcr.io/hierynomus/tunnelgate:dev} ${PUSH:+--push} ."
+
+[tasks.dist]
+description = "Release assets in target/dist: CLI tarballs, crds.yaml, chart, checksums (VERSION=x.y.z)"
+depends = ["build-musl"]
+run = """
+set -eu
+version="${VERSION:?set VERSION, e.g. VERSION=0.1.0}"
+rm -rf target/dist && mkdir -p target/dist
+for arch in amd64 arm64; do
+  tar -C "target/image/$arch" -czf "target/dist/tunnelgate_${version}_linux_${arch}.tar.gz" tunnelgate tunnelgate-operator
+done
+cargo run -q --locked -p tunnelgate-cli -- crdgen > target/dist/crds.yaml
+helm package charts/tunnelgate --version "$version" --app-version "$version" --destination target/dist
+(cd target/dist && sha256sum -- * > checksums.txt)
+"""

@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Caches are written by PR and main runs; GitHub scopes them so a PR's cache is only visible to
+# that PR, and the release workflow uses none (a signed release is built from scratch).
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-lint-and-test-${{ runner.os }}-${{ hashFiles('mise.toml', '**/Cargo.lock') }}
+          restore-keys: cargo-lint-and-test-${{ runner.os }}-
+      - run: mise run lint
+      - run: mise run test
+      - name: CRDs are up to date
+        run: mise run crds
+        env:
+          CI: "true"
+      - run: mise run chart
+
+  cluster:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-cluster-${{ runner.os }}-${{ hashFiles('mise.toml', '**/Cargo.lock') }}
+          restore-keys: cargo-cluster-${{ runner.os }}-
+      - run: mise run test-cluster

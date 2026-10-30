@@ -1,0 +1,17 @@
+[package]
+name = "tunnelgate-api"
+description = "Custom resource types for tunnelgate (tunnelgate.geeko.me/v1alpha1)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+k8s-openapi = { workspace = true, features = ["v1_32", "schemars"] }
+kube = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

@@ -1,0 +1,122 @@
+---
+source: crates/tunnelgate-operator/src/tunnel/connector.rs
+expression: "deployment(&t, &params)"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: connector
+    app.kubernetes.io/instance: main
+    app.kubernetes.io/managed-by: tunnelgate
+    app.kubernetes.io/name: cloudflared
+    tunnelgate.geeko.me/tunnel: main
+  name: main-cloudflared
+  namespace: tunnelgate
+  ownerReferences:
+    - apiVersion: tunnelgate.geeko.me/v1alpha1
+      controller: true
+      kind: Tunnel
+      name: main
+      uid: 0f0f0f0f-0000-0000-0000-000000000001
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: main
+      app.kubernetes.io/name: cloudflared
+      tunnelgate.geeko.me/tunnel: main
+  template:
+    metadata:
+      annotations:
+        tunnelgate.geeko.me/ca-pool-hash: abc123
+      labels:
+        app.kubernetes.io/component: connector
+        app.kubernetes.io/instance: main
+        app.kubernetes.io/managed-by: tunnelgate
+        app.kubernetes.io/name: cloudflared
+        tunnelgate.geeko.me/tunnel: main
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: main
+                    app.kubernetes.io/name: cloudflared
+                    tunnelgate.geeko.me/tunnel: main
+                topologyKey: kubernetes.io/hostname
+              weight: 100
+      automountServiceAccountToken: false
+      containers:
+        - args:
+            - tunnel
+            - "--no-autoupdate"
+            - "--metrics"
+            - "0.0.0.0:2000"
+            - "--protocol"
+            - quic
+            - "--edge-ip-version=4"
+            - run
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: token
+                  name: main-token
+                  optional: false
+          image: "cloudflare/cloudflared:2026.10.5@sha256:1b1d34d0a9c0bfca9de72db8460d328db3f19edd2b96169114e3e893a97bbe53"
+          livenessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          name: cloudflared
+          ports:
+            - containerPort: 2000
+              name: metrics
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /etc/tunnelgate/ca
+              name: ca-pool
+              readOnly: true
+      enableServiceLinks: false
+      securityContext:
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: ca-pool
+          secret:
+            items:
+              - key: ca.crt
+                path: ca.crt
+            secretName: origin-ca

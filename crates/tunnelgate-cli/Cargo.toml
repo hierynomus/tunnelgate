@@ -1,0 +1,30 @@
+[package]
+name = "tunnelgate-cli"
+description = "The tunnelgate CLI: sweep leftovers, generate CRDs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "tunnelgate_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tunnelgate"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+k8s-openapi = { workspace = true }
+secrecy = { workspace = true }
+serde_json = { workspace = true }
+serde-saphyr = { workspace = true }
+tokio = { workspace = true }
+tunnelgate-api = { workspace = true }
+tunnelgate-cf = { workspace = true, features = ["client"] }
+tunnelgate-render = { workspace = true }
+
+[dev-dependencies]
+tunnelgate-cf-fake = { workspace = true }

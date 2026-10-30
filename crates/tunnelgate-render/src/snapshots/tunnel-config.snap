@@ -1,0 +1,24 @@
+---
+source: crates/tunnelgate-render/src/ingress.rs
+expression: config
+---
+{
+  "ingress": [
+    {
+      "hostname": "rancher.example.org",
+      "service": "https://rke2-traefik.kube-system.svc:443",
+      "originRequest": {
+        "httpHostHeader": "rancher.example.org",
+        "originServerName": "rancher.example.org"
+      }
+    },
+    {
+      "service": "http_status:404"
+    }
+  ],
+  "originRequest": {
+    "connectTimeout": 30,
+    "keepAliveTimeout": 90,
+    "caPool": "/etc/tunnelgate/ca/ca.crt"
+  }
+}

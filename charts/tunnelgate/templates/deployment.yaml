@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tunnelgate.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tunnelgate.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tunnelgate.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tunnelgate.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "tunnelgate.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: operator
+          image: {{ include "tunnelgate.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: RUST_LOG
+              value: {{ printf "%s,kube=warn" .Values.logLevel | quote }}
+            - name: TUNNELGATE_LOG_FORMAT
+              value: {{ .Values.logFormat | quote }}
+            - name: TUNNELGATE_RESYNC
+              value: {{ .Values.resyncPeriod | quote }}
+            - name: TUNNELGATE_CLOUDFLARE_RATE
+              value: {{ .Values.cloudflareRateLimit.perSecond | quote }}
+            - name: TUNNELGATE_CLOUDFLARE_BURST
+              value: {{ .Values.cloudflareRateLimit.burst | quote }}
+            - name: TUNNELGATE_CONNECTOR_IMAGE
+              value: {{ .Values.connector.image | quote }}
+            - name: TUNNELGATE_CONNECTOR_REPLICAS
+              value: {{ .Values.connector.replicas | quote }}
+            {{- with .Values.cloudflareApiUrl }}
+            - name: TUNNELGATE_CLOUDFLARE_API
+              value: {{ . | quote }}
+            {{- end }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

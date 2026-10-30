@@ -1,0 +1,42 @@
+# Labels PRs for the release notes sections in .github/release.yml.
+#
+# pull_request_target so PRs from forks can be labelled too. That's safe here because no PR code
+# is checked out or run: labeler reads the changed paths from the API, and the script only reads
+# the title from the event payload.
+name: labeler
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          sync-labels: false
+      - name: Label from the title
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const title = context.payload.pull_request.title.toLowerCase();
+            const rules = [
+              { label: 'security',     re: /\b(cve|security|vulnerability)\b/ },
+              { label: 'bug',          re: /\b(fix(es|ed|ing)?|bug|regression|broken|crash)\b/ },
+              { label: 'enhancement',  re: /\b(add(s|ed|ing)?|support(s|ed|ing)?|implement(s|ed)?|feat(ure)?)\b/ },
+              { label: 'dependencies', re: /\b(upgrad(e|es|ed|ing)|bump(s|ed)?|depend(ency|encies))\b/ },
+              { label: 'improvement',  re: /\b(refactor(ed|ing)?|clean(up)?|improv(e|es|ed|ing)|remov(e|es|ed|ing)|replac(e|es|ed|ing))\b/ },
+            ];
+            const labels = rules.filter(r => r.re.test(title)).map(r => r.label);
+            if (labels.length === 0) return;
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels,
+            });

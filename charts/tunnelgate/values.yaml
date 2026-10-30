@@ -1,0 +1,55 @@
+image:
+  repository: ghcr.io/hierynomus/tunnelgate
+  # Defaults to the chart's appVersion. Release charts pin `digest` as well.
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# One replica is enough; leader election makes more replicas safe (hot standby).
+replicaCount: 1
+
+# Full resync period: Cloudflare state is compared with the resources and drift repaired.
+resyncPeriod: 10m
+
+# Client-side Cloudflare API budget per token. Cloudflare allows 1200 requests per 5 minutes;
+# the default (burst 100, then 3/s) uses at most 1000 of them. perSecond: 0 turns it off.
+cloudflareRateLimit:
+  perSecond: 3
+  burst: 100
+
+logLevel: info
+# json or text
+logFormat: json
+
+connector:
+  # Official cloudflared image used when a Tunnel doesn't set spec.connector.image.
+  image: cloudflare/cloudflared:2026.10.5@sha256:1b1d34d0a9c0bfca9de72db8460d328db3f19edd2b96169114e3e893a97bbe53
+  # Replicas when a Tunnel doesn't set spec.connector.replicas (pods prefer separate nodes).
+  replicas: 2
+
+# Override the Cloudflare API endpoint (tests only).
+cloudflareApiUrl: ""
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+
+serviceAccount:
+  create: true
+  name: ""
+
+# A GatewayClass for tunnelgate, created only when the Gateway API CRDs are installed. Gateways of
+# this class name their Tunnel with the annotation `tunnelgate.geeko.me/tunnel`.
+gatewayClass:
+  create: true
+  name: tunnelgate

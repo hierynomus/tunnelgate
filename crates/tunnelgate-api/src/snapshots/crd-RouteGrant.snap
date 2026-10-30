@@ -1,0 +1,70 @@
+---
+source: crates/tunnelgate-api/src/lib.rs
+expression: crd
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: routegrants.tunnelgate.geeko.me
+spec:
+  group: tunnelgate.geeko.me
+  names:
+    categories:
+      - tunnelgate
+    kind: RouteGrant
+    plural: routegrants
+    shortNames:
+      - rg
+    singular: routegrant
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: Permits references from other namespaces into this one (ReferenceGrant semantics).
+          properties:
+            spec:
+              description: "Same shape and semantics as Gateway API's `ReferenceGrant`, for clusters without it: lives in\nthe namespace of the referenced objects (`to`) and permits references from `from`."
+              properties:
+                from:
+                  items:
+                    properties:
+                      group:
+                        description: "API group; `\"\"` for the core group."
+                        type: string
+                      kind:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                      - group
+                      - kind
+                      - namespace
+                    type: object
+                  type: array
+                to:
+                  items:
+                    properties:
+                      group:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        description: A specific object; omitted means all objects of the kind.
+                        nullable: true
+                        type: string
+                    required:
+                      - group
+                      - kind
+                    type: object
+                  type: array
+              required:
+                - from
+                - to
+              type: object
+          required:
+            - spec
+          title: RouteGrant
+          type: object
+      served: true
+      storage: true

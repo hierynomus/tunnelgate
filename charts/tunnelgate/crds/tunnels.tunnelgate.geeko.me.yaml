@@ -1,0 +1,467 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tunnels.tunnelgate.geeko.me
+spec:
+  group: tunnelgate.geeko.me
+  names:
+    categories:
+    - tunnelgate
+    kind: Tunnel
+    plural: tunnels
+    shortNames:
+    - tun
+    singular: tunnel
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.tunnelId
+      name: Tunnel ID
+      type: string
+    - jsonPath: .status.connectors
+      name: Connectors
+      type: integer
+    - jsonPath: .status.routes
+      name: Routes
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: A remote-managed Cloudflare Tunnel and its cloudflared connector Deployment.
+        properties:
+          spec:
+            description: >-
+              One Cloudflare Tunnel (remote-managed) and its in-cluster `cloudflared`
+              connector.
+            properties:
+              adopt:
+                default: false
+                description: |-
+                  Take over an existing Cloudflare tunnel with this name that isn't recorded as ours
+                  (tunnels with the default name, which includes the cluster ID, are always taken over).
+                type: boolean
+              cloudflare:
+                description: |-
+                  Which Cloudflare account to use and how to authenticate.
+                  
+                  Either `accountRef` (a cluster-scoped `CloudflareAccount`) or an inline account
+                  (`accountId` or `accountName`, plus `credentialsSecretRef`).
+                properties:
+                  accountId:
+                    description: Cloudflare account ID.
+                    nullable: true
+                    type: string
+                  accountName:
+                    description: "Cloudflare account name, looked up through the API (needs Account Settings: Read)."
+                    nullable: true
+                    type: string
+                  accountRef:
+                    description: Name of a cluster-scoped `CloudflareAccount`.
+                    nullable: true
+                    type: string
+                  credentialsSecretRef:
+                    description: Secret in the resource's namespace holding the API token.
+                    nullable: true
+                    properties:
+                      key:
+                        description: >-
+                          Key in the Secret's data; defaults depend on the field (`CLOUDFLARE_API_TOKEN`,
+                          `ca.crt`).
+                        nullable: true
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: set either accountRef, or accountId/accountName with credentialsSecretRef
+                  rule: has(self.accountRef) != (has(self.accountId) || has(self.accountName))
+                - message: credentialsSecretRef is required with an inline accountId/accountName
+                  rule: has(self.accountRef) || has(self.credentialsSecretRef)
+              connector:
+                default:
+                  protocol: auto
+                description: The managed cloudflared Deployment.
+                properties:
+                  extraArgs:
+                    description: >-
+                      Extra arguments passed to `cloudflared tunnel` before `run`, e.g.
+                      `--edge-ip-version=6`.
+                    items:
+                      type: string
+                    type: array
+                  image:
+                    description: |-
+                      Official `cloudflare/cloudflared` image, pinned tag or digest. Defaults to the operator's
+                      configured image.
+                    nullable: true
+                    type: string
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  protocol:
+                    default: auto
+                    enum:
+                    - auto
+                    - quic
+                    - http2
+                    type: string
+                  replicas:
+                    description: Defaults to the operator's configured default (2).
+                    format: int32
+                    nullable: true
+                    type: integer
+                  resources:
+                    description: ResourceRequirements describes the compute resource requirements.
+                    nullable: true
+                    properties:
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container.
+                          
+                          This is an alpha field and requires enabling the DynamicResourceAllocation feature gate.
+                          
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: >-
+                                Name must match the name of one entry in pod.spec.resourceClaims of the Pod
+                                where this field is used. It makes that resource available inside a container.
+                              type: string
+                            request:
+                              description: >-
+                                Request is the name chosen for a request in the referenced claim. If empty,
+                                everything from the claim is made available, otherwise only the result of this
+                                request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      limits:
+                        additionalProperties:
+                          description: |-
+                            Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.
+                            
+                            The serialization format is:
+                            
+                            ``` <quantity>        ::= <signedNumber><suffix>
+                            
+                            	(Note that <suffix> may be empty, from the "" case in <decimalSI>.)
+                            
+                            <digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= "+" | "-" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei
+                            
+                            	(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)
+                            
+                            <decimalSI>       ::= m | "" | k | M | G | T | P | E
+                            
+                            	(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)
+                            
+                            <decimalExponent> ::= "e" <signedNumber> | "E" <signedNumber> ```
+                            
+                            No matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.
+                            
+                            When a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.
+                            
+                            Before serializing, Quantity will be put in "canonical form". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:
+                            
+                            - No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.
+                            
+                            The sign will be omitted unless the number is negative.
+                            
+                            Examples:
+                            
+                            - 1.5 will be serialized as "1500m" - 1.5Gi will be serialized as "1536Mi"
+                            
+                            Note that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.
+                            
+                            Non-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)
+                            
+                            This format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation.
+                          x-kubernetes-int-or-string: true
+                        description: "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+                        type: object
+                      requests:
+                        additionalProperties:
+                          description: |-
+                            Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.
+                            
+                            The serialization format is:
+                            
+                            ``` <quantity>        ::= <signedNumber><suffix>
+                            
+                            	(Note that <suffix> may be empty, from the "" case in <decimalSI>.)
+                            
+                            <digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= "+" | "-" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei
+                            
+                            	(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)
+                            
+                            <decimalSI>       ::= m | "" | k | M | G | T | P | E
+                            
+                            	(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)
+                            
+                            <decimalExponent> ::= "e" <signedNumber> | "E" <signedNumber> ```
+                            
+                            No matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.
+                            
+                            When a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.
+                            
+                            Before serializing, Quantity will be put in "canonical form". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:
+                            
+                            - No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.
+                            
+                            The sign will be omitted unless the number is negative.
+                            
+                            Examples:
+                            
+                            - 1.5 will be serialized as "1500m" - 1.5Gi will be serialized as "1536Mi"
+                            
+                            Note that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.
+                            
+                            Non-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)
+                            
+                            This format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation.
+                          x-kubernetes-int-or-string: true
+                        description: "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+                        type: object
+                    type: object
+                  tolerations:
+                    items:
+                      description: >-
+                        The pod this Toleration is attached to tolerates any taint that matches the
+                        triple <key,value,effect> using the matching operator <operator>.
+                      properties:
+                        effect:
+                          description: >-
+                            Effect indicates the taint effect to match. Empty means match all taint
+                            effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                          type: string
+                        key:
+                          description: >-
+                            Key is the taint key that the toleration applies to. Empty means match all
+                            taint keys. If the key is empty, operator must be Exists; this combination means to
+                            match all values and all keys.
+                          type: string
+                        operator:
+                          description: >-
+                            Operator represents a key's relationship to the value. Valid operators are
+                            Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so
+                            that a pod can tolerate all taints of a particular category.
+                          type: string
+                        tolerationSeconds:
+                          description: >-
+                            TolerationSeconds represents the period of time the toleration (which must be
+                            of effect NoExecute, otherwise this field is ignored) tolerates the taint. By
+                            default, it is not set, which means tolerate the taint forever (do not evict). Zero
+                            and negative values will be treated as 0 (evict immediately) by the system.
+                          format: int64
+                          type: integer
+                        value:
+                          description: >-
+                            Value is the taint value the toleration matches to. If the operator is Exists,
+                            the value should be empty, otherwise just a regular string.
+                          type: string
+                      type: object
+                    type: array
+                type: object
+              deletionPolicy:
+                default: Delete
+                enum:
+                - Delete
+                - Retain
+                type: string
+              fallback:
+                description: "What unmatched requests get. Defaults to `{status: 404}`."
+                nullable: true
+                properties:
+                  service:
+                    nullable: true
+                    type: string
+                  status:
+                    format: uint16
+                    maximum: 599.0
+                    minimum: 100.0
+                    nullable: true
+                    type: integer
+                type: object
+                x-kubernetes-validations:
+                - message: set exactly one of status or service
+                  rule: has(self.status) != has(self.service)
+              name:
+                description: >-
+                  Cloudflare tunnel name. Defaults to `<namespace>-<name>-<clusterId[:8]>`.
+                  Immutable.
+                nullable: true
+                type: string
+                x-kubernetes-validations:
+                - message: name is immutable
+                  rule: self == oldSelf
+              originDefaults:
+                description: Origin settings applied to every route unless the route overrides them.
+                nullable: true
+                properties:
+                  caPoolSecretRef:
+                    description: |-
+                      CA bundle (PEM) used to verify origin certificates; mounted into the cloudflared pods.
+                      Key defaults to `ca.crt`.
+                    nullable: true
+                    properties:
+                      key:
+                        description: >-
+                          Key in the Secret's data; defaults depend on the field (`CLOUDFLARE_API_TOKEN`,
+                          `ca.crt`).
+                        nullable: true
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  connectTimeout:
+                    description: Go-style duration, whole seconds (e.g. `30s`).
+                    nullable: true
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^([0-9]+(ms|s|m|h))+$')
+                  disableChunkedEncoding:
+                    nullable: true
+                    type: boolean
+                  http2Origin:
+                    nullable: true
+                    type: boolean
+                  keepAliveConnections:
+                    format: int32
+                    nullable: true
+                    type: integer
+                  keepAliveTimeout:
+                    nullable: true
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^([0-9]+(ms|s|m|h))+$')
+                  noHappyEyeballs:
+                    nullable: true
+                    type: boolean
+                  noTLSVerify:
+                    nullable: true
+                    type: boolean
+                  tlsTimeout:
+                    nullable: true
+                    type: string
+                    x-kubernetes-validations:
+                    - rule: self.matches('^([0-9]+(ms|s|m|h))+$')
+                type: object
+            required:
+            - cloudflare
+            type: object
+          status:
+            nullable: true
+            properties:
+              accountId:
+                description: Account the tunnel lives in (resolved from the spec).
+                nullable: true
+                type: string
+              cname:
+                description: "`<tunnelId>.cfargotunnel.com`, the target of route DNS records."
+                nullable: true
+                type: string
+              conditions:
+                items:
+                  description: >-
+                    Condition contains details for one aspect of the current state of this API
+                    Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: >-
+                        lastTransitionTime is the last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.  If that is not
+                        known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: >-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: >-
+                        observedGeneration represents the .metadata.generation that the condition was
+                        set based upon. For instance, if .metadata.generation is currently 12, but the
+                        .status.conditions[x].observedGeneration is 9, the condition is out of date with
+                        respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: >-
+                        reason contains a programmatic identifier indicating the reason for the
+                        condition's last transition. Producers of specific condition types may define expected
+                        values and meanings for this field, and whether the values are considered a
+                        guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              configHash:
+                description: Hash of the last applied rendered configuration.
+                nullable: true
+                type: string
+              configVersion:
+                description: Cloudflare's configuration version last applied.
+                format: int64
+                nullable: true
+                type: integer
+              connectors:
+                description: Active connector connections as reported by Cloudflare.
+                format: int32
+                nullable: true
+                type: integer
+              dnsZoneIds:
+                description: Zones in which this tunnel has DNS records (for cleanup).
+                items:
+                  type: string
+                type: array
+              observedGeneration:
+                format: int64
+                nullable: true
+                type: integer
+              routes:
+                description: Routes included in the applied configuration.
+                format: int32
+                nullable: true
+                type: integer
+              tunnelId:
+                nullable: true
+                type: string
+              tunnelName:
+                nullable: true
+                type: string
+            type: object
+        required:
+        - spec
+        title: Tunnel
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

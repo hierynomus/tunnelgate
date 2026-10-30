@@ -1,0 +1,5 @@
+---
+source: crates/tunnelgate-render/src/ingress.rs
+expression: hash
+---
+49ed9878bb97c51fe9c554f5c2551ee3

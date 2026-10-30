@@ -1,0 +1,84 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "tunnelgate.fullname" . }}
+  labels:
+    {{- include "tunnelgate.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["tunnelgate.geeko.me"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["tunnelgate.geeko.me"]
+    resources: ["*/status", "*/finalizers"]
+    verbs: ["get", "patch", "update"]
+  # The Gateway API adapter generates TunnelRoutes from HTTPRoutes.
+  - apiGroups: ["tunnelgate.geeko.me"]
+    resources: ["tunnelroutes"]
+    verbs: ["create", "delete"]
+  # Connector token and service token Secrets (written), credentials and CA pool Secrets (read).
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+  # The cluster ID is the kube-system namespace UID; namespace labels decide which namespaces a
+  # Gateway listener admits routes from (allowedRoutes.namespaces.selector).
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants", "gatewayclasses", "gateways", "httproutes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gatewayclasses/status", "gateways/status", "httproutes/status"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "tunnelgate.fullname" . }}
+  labels:
+    {{- include "tunnelgate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "tunnelgate.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "tunnelgate.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tunnelgate.fullname" . }}-leader-election
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tunnelgate.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tunnelgate.fullname" . }}-leader-election
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tunnelgate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "tunnelgate.fullname" . }}-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "tunnelgate.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

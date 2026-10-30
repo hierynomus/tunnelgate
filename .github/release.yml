@@ -1,0 +1,22 @@
+# Sections for `gh release create --generate-notes` (GitHub's built-in release notes), by PR label.
+# Labels are set by .github/workflows/labeler.yml from the changed paths and the PR title.
+changelog:
+  exclude:
+    labels: [skip-changelog]
+  categories:
+    - title: 🔒 Security
+      labels: [security]
+    - title: ✨ New features
+      labels: [enhancement]
+    - title: 🐛 Bug fixes
+      labels: [bug]
+    - title: 🔨 Improvements
+      labels: [improvement]
+    - title: 📝 Documentation
+      labels: [documentation]
+    - title: 📦 Dependencies
+      labels: [dependencies]
+    - title: 🏗️ Infrastructure
+      labels: [infrastructure]
+    - title: Other changes
+      labels: ["*"]

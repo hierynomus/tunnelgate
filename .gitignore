@@ -1,0 +1,7 @@
+/target
+*.snap.new
+mise.local.toml
+
+# Local design notes, not part of the repository
+/SPEC.md
+/docs/decisions.md

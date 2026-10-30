@@ -1,0 +1,27 @@
+[package]
+name = "tunnelgate-cf"
+description = "Small typed Cloudflare API client: tunnels, DNS and Access"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = ["client"]
+# The reqwest-based client. Without it the crate only provides the API types and the trait.
+client = ["dep:reqwest", "dep:rand", "dep:tokio", "dep:tracing"]
+
+[dependencies]
+async-trait = { workspace = true }
+rand = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+secrecy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+tunnelgate-cf-fake = { workspace = true }

@@ -1,0 +1,28 @@
+---
+source: crates/tunnelgate-operator/src/tunnel/connector.rs
+expression: "pdb(&t, 2)"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/component: connector
+    app.kubernetes.io/instance: main
+    app.kubernetes.io/managed-by: tunnelgate
+    app.kubernetes.io/name: cloudflared
+    tunnelgate.geeko.me/tunnel: main
+  name: main-cloudflared
+  namespace: tunnelgate
+  ownerReferences:
+    - apiVersion: tunnelgate.geeko.me/v1alpha1
+      controller: true
+      kind: Tunnel
+      name: main
+      uid: 0f0f0f0f-0000-0000-0000-000000000001
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: main
+      app.kubernetes.io/name: cloudflared
+      tunnelgate.geeko.me/tunnel: main

@@ -1,0 +1,179 @@
+---
+source: crates/tunnelgate-api/src/lib.rs
+expression: crd
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: accessapplications.tunnelgate.geeko.me
+spec:
+  group: tunnelgate.geeko.me
+  names:
+    categories:
+      - tunnelgate
+    kind: AccessApplication
+    plural: accessapplications
+    shortNames:
+      - aapp
+    singular: accessapplication
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: ".status.applicationId"
+          name: App ID
+          type: string
+        - jsonPath: ".status.conditions[?(@.type==\"Ready\")].status"
+          name: Ready
+          type: string
+        - jsonPath: ".metadata.creationTimestamp"
+          name: Age
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: A self-hosted Cloudflare Access application for hostnames or host/path destinations.
+          properties:
+            spec:
+              description: "A `self_hosted` Cloudflare Access application covering one or more destinations."
+              properties:
+                allowedIdps:
+                  description: Identity provider IDs; empty means all configured.
+                  items:
+                    type: string
+                  type: array
+                appLauncherVisible:
+                  default: false
+                  type: boolean
+                cloudflare:
+                  description: "Which Cloudflare account to use and how to authenticate.\n\nEither `accountRef` (a cluster-scoped `CloudflareAccount`) or an inline account\n(`accountId` or `accountName`, plus `credentialsSecretRef`)."
+                  properties:
+                    accountId:
+                      description: Cloudflare account ID.
+                      nullable: true
+                      type: string
+                    accountName:
+                      description: "Cloudflare account name, looked up through the API (needs Account Settings: Read)."
+                      nullable: true
+                      type: string
+                    accountRef:
+                      description: "Name of a cluster-scoped `CloudflareAccount`."
+                      nullable: true
+                      type: string
+                    credentialsSecretRef:
+                      description: "Secret in the resource's namespace holding the API token."
+                      nullable: true
+                      properties:
+                        key:
+                          description: "Key in the Secret's data; defaults depend on the field (`CLOUDFLARE_API_TOKEN`, `ca.crt`)."
+                          nullable: true
+                          type: string
+                        name:
+                          type: string
+                      required:
+                        - name
+                      type: object
+                  type: object
+                  x-kubernetes-validations:
+                    - message: "set either accountRef, or accountId/accountName with credentialsSecretRef"
+                      rule: has(self.accountRef) != (has(self.accountId) || has(self.accountName))
+                    - message: credentialsSecretRef is required with an inline accountId/accountName
+                      rule: has(self.accountRef) || has(self.credentialsSecretRef)
+                destinations:
+                  description: "`host` or `host/path` destinations."
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-validations:
+                    - message: at least one destination is required
+                      rule: size(self) > 0
+                name:
+                  description: "Name shown in Cloudflare (an ownership suffix is appended). Defaults to `<namespace>/<name>`."
+                  nullable: true
+                  type: string
+                options:
+                  description: Passthrough for less common Cloudflare application fields (camelCase or snake_case).
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                policies:
+                  default: []
+                  description: "Reusable `AccessPolicy` resources, in precedence order."
+                  items:
+                    description: "A reference to an object of a known kind, optionally in another namespace."
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        description: "Defaults to the referring resource's namespace."
+                        nullable: true
+                        type: string
+                    required:
+                      - name
+                    type: object
+                  type: array
+                sessionDuration:
+                  nullable: true
+                  type: string
+                  x-kubernetes-validations:
+                    - rule: "self.matches('^([0-9]+(ms|s|m|h))+$')"
+              required:
+                - cloudflare
+                - destinations
+              type: object
+            status:
+              nullable: true
+              properties:
+                accountId:
+                  nullable: true
+                  type: string
+                applicationId:
+                  nullable: true
+                  type: string
+                aud:
+                  description: Application audience tag (for validating Access JWTs at the origin).
+                  nullable: true
+                  type: string
+                conditions:
+                  items:
+                    description: Condition contains details for one aspect of the current state of this API Resource.
+                    properties:
+                      lastTransitionTime:
+                        description: "lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable."
+                        format: date-time
+                        type: string
+                      message:
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
+                        type: string
+                      observedGeneration:
+                        description: "observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance."
+                        format: int64
+                        type: integer
+                      reason:
+                        description: "reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty."
+                        type: string
+                      status:
+                        description: "status of the condition, one of True, False, Unknown."
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                observedGeneration:
+                  format: int64
+                  nullable: true
+                  type: integer
+              type: object
+          required:
+            - spec
+          title: AccessApplication
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
