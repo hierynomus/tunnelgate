@@ -305,7 +305,7 @@ impl Context {
 
     /// Requeue delay for a healthy resource: the resync period ±10%, so resyncs spread out.
     pub fn resync_jittered(&self) -> Duration {
-        use rand::Rng;
+        use rand::RngExt;
         let base = self.settings.resync.as_secs_f64();
         Duration::from_secs_f64(base * rand::rng().random_range(0.9..1.1))
     }

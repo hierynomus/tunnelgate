@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rand::Rng;
+use rand::RngExt;
 use reqwest::{Method, StatusCode, header};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Serialize;
