@@ -1,8 +1,16 @@
 # Keeps pinned digests and SHAs current: the base image, GitHub Actions and crates.
 version: 2
+
+# Dependabot only reaches hosts listed here, even public ones that need no credentials.
+registries:
+  suse:
+    type: docker-registry
+    url: https://registry.suse.com
+
 updates:
   - package-ecosystem: docker
     directory: /
+    registries: [suse]
     schedule: { interval: weekly }
   - package-ecosystem: github-actions
     directory: /
@@ -11,5 +19,8 @@ updates:
     directory: /
     schedule: { interval: weekly }
     groups:
+      # Minor and patch updates together; major (breaking) updates get a PR each, so one that
+      # needs code changes doesn't hold back the rest.
       cargo:
         patterns: ["*"]
+        update-types: [minor, patch]
